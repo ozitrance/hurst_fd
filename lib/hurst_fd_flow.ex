@@ -12,7 +12,7 @@ defmodule HurstFdFlow do
         slice = series |> S.slice(index, window)
         [{index, slice} | slices]
       end)
-      |> Flow.from_enumerable([min_demand: 2, max_demand: 4])
+      |> Flow.from_enumerable([min_demand: 25, max_demand: 50])
       |> Flow.reduce(fn -> [] end, fn {index, slice}, acc ->
           log_returns = slice
             |> S.log
