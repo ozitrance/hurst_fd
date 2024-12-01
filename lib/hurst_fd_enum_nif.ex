@@ -9,20 +9,19 @@ defmodule HurstFdEnumNif do
     window_sizes = Nx.linspace(min_window, max_window, n: num_windows, type: {:s, 32})
     log_window_sizes = Nx.log(window_sizes) |> Nx.new_axis(-1)
     window_sizes = window_sizes |> Nx.to_list()
-    results =
-      Enum.reduce(0..(S.count(series) - 1 - window), [], fn index, slices ->
+    Enum.reduce(0..(S.count(series) - 1 - window), [], fn index, slices ->
         slice = series |> S.slice(index, window)
         [{index, slice} | slices]
-      end)
+    end)
       |> Enum.reduce([], fn {index, slice}, acc ->
           log_returns = slice
             |> S.log
-            |> then(&S.subtract(&1, S.shift(&1, -1)))
+            |> then(&S.subtract(&1, S.shift(&1, 1)))
             |> S.fill_missing(:forward)
           {exponent, dimension} = window_sizes_loop(log_returns, window_sizes, log_window_sizes, num_samples)
           [%{exponent: exponent, dimension: dimension, index: index + window - 1} | acc]
         end)
-    DF.new(results)
+      |> DF.new
   end
 
   defp window_sizes_loop(slice, window_sizes, log_window_sizes, num_samples) do

@@ -12,7 +12,7 @@ defmodule HurstFd do
 
     log_returns = series
       |> S.log
-      |> then(&S.subtract(&1, S.shift(&1, -1)))
+      |> then(&S.subtract(&1, S.shift(&1, 1)))
 
     window_sizes = Nx.linspace(min_window, max_window, n: num_windows, type: {:s, 32})
 

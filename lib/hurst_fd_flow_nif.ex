@@ -8,29 +8,29 @@ defmodule HurstFdFlowNif do
     window_sizes = Nx.linspace(min_window, max_window, n: num_windows, type: {:s, 32})
     log_window_sizes = Nx.log(window_sizes) |> Nx.new_axis(-1)
     window_sizes = window_sizes |> Nx.to_list()
-    results =
-      Enum.reduce(0..(S.count(series) - 1 - window), [], fn index, slices ->
+
+    Enum.reduce(0..(S.count(series) - 1 - window), [], fn index, slices ->
         slice = series |> S.slice(index, window)
         [{index, slice} | slices]
-      end)
+    end)
       |> Flow.from_enumerable([min_demand: 25, max_demand: 50])
       |> Flow.reduce(fn -> [] end, fn {index, slice}, acc ->
           log_returns = slice
             |> S.log
-            |> then(&S.subtract(&1, S.shift(&1, -1)))
+            |> then(&S.subtract(&1, S.shift(&1, 1)))
             |> S.fill_missing(:forward)
           {exponent, dimension} = window_sizes_loop(log_returns, window_sizes, log_window_sizes, num_samples)
           [%{exponent: exponent, dimension: dimension, index: index + window - 1} | acc]
         end)
       |> Enum.to_list()
+      |> DF.new
 
-    DF.new(results)
   end
 
   defp window_sizes_loop(slice, window_sizes, log_window_sizes, num_samples) do
 
     r_s = HurstFdNif.compute_rs(slice |> S.to_iovec, num_samples, window_sizes)
-    log_r_s = Nx.from_binary(r_s, :f64)|> Nx.log
+    log_r_s = Nx.from_binary(r_s, :f64) |> Nx.log
     model = Scholar.Linear.PolynomialRegression.fit(log_window_sizes, log_r_s, degree: 1)
 
     hurst_exponent = model.coefficients[0] |> Nx.to_number

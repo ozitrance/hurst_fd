@@ -7,23 +7,22 @@ defmodule HurstFdFlow do
 
     window_sizes = Nx.linspace(min_window, max_window, n: num_windows, type: {:s, 32})
 
-    results =
-      Enum.reduce(0..(S.count(series) - 1 - window), [], fn index, slices ->
+    Enum.reduce(0..(S.count(series) - 1 - window), [], fn index, slices ->
         slice = series |> S.slice(index, window)
         [{index, slice} | slices]
-      end)
+    end)
       |> Flow.from_enumerable([min_demand: 25, max_demand: 50])
       |> Flow.reduce(fn -> [] end, fn {index, slice}, acc ->
           log_returns = slice
             |> S.log
-            |> then(&S.subtract(&1, S.shift(&1, -1)))
+            |> then(&S.subtract(&1, S.shift(&1, 1)))
           IO.inspect(index)
           {exponent, dimension} = window_sizes_loop(log_returns, window_sizes, num_samples)
           [%{exponent: exponent, dimension: dimension, index: index + window - 1} | acc]
         end)
       |> Enum.to_list()
+      |> DF.new
 
-    DF.new(results)
   end
 
   defp window_sizes_loop(slice, window_sizes, num_samples) do
